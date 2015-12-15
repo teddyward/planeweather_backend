@@ -1,11 +1,12 @@
-# all the imports
 import sqlite3
 import json
+import googlemaps
 from flask import Flask, request
 	 
 DEBUG = True
+AIRPORT_SUFFIX = " airport"
+MAPS_KEY = "AIzaSyBJD1N0f9sVnhOSMQhIpFZF6oiLhK8Zi18"
 
-# create our little application :)
 app = Flask(__name__)
 app.config.from_object(__name__)
 
@@ -14,12 +15,10 @@ def resolve_location(location):
 	formatted_location = location.replace(" ", "").upper()
 	as_list = formatted_location.split(",")
 	if(len(as_list) > 1):
-		latitude = as_list[0]
-		longitude = as_list[1]
-	else:	
-		latitude = 33.942536
-		longitude = -118.408075
-	return json.dumps({'location': [latitude, longitude]})
+		location = [float(as_list[0]), float(as_list[1])]
+	else:
+		location = get_IATA_geocode(formatted_location)
+	return json.dumps({'location': location})
 	
 @app.route('/forecast/<src>/<dest>/<departure_datetime>/<speed_mph>/<time_step>')
 def forecast_route(src, dest, departure_datetime, speed_mph, time_step):
@@ -30,8 +29,16 @@ def forecast_route(src, dest, departure_datetime, speed_mph, time_step):
 		longitude = -118.408075
 		all_reads.append(get_weather(latitude, longitude))
 	return json.dumps(all_reads)
-	
-def get_weather(latitude, longitude):
+
+def get_IATA_geocode(iata_code):
+	gmaps = googlemaps.Client(key=MAPS_KEY)
+	full_location = gmaps.geocode(iata_code + AIRPORT_SUFFIX)
+	lat_long = full_location[0]["geometry"]["location"]
+	#strip lat and long identifiers
+	ret = [lat_long["lat"], lat_long["lng"]]
+	return ret
+
+def get_weather(latitude, longitude, time):
 	humidity = 0.64
 	incomplete = False
 	temperature = 60.65
