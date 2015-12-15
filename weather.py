@@ -32,7 +32,7 @@ def forecast_route(src, dest, departure_datetime, speed_mph, time_step):
 	interval = float(time_step)
 	#get forecasts
 	forecasts = get_forecasts(source, destination, start_time, speed, interval)
-	return json.dumps(all_reads)
+	return json.dumps(forecasts)
 
 def get_location(location):
 	formatted_location = location.replace(" ", "").upper()
@@ -65,7 +65,7 @@ def get_IATA_geocode(iata_code):
 # get an array of forecasts at different locations
 # by calculating waypoints on the route between the start / end
 # and retrieving a forecast for each one
-def get forecasts(source, destination, start_time, speed, interval):
+def get_forecasts(source, destination, start_time, speed, interval):
 	distance = great_circle(source, destination).miles
 	num_reads = int(math.floor(distance / (speed * interval)))
 	miles_travelled = 0
@@ -101,7 +101,8 @@ def get_forecast(latitude, longitude, time):
 		humidity = 0
 	
 	time_utc = str(forecast.time)
-	time_offset = -8
+	#google maps API failing
+	time_offset = 0
 	time_rnd = str(forecast.time)
 	
 	read = {
