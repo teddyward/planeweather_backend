@@ -11,8 +11,14 @@ app.config.from_object(__name__)
 
 @app.route('/resolve/<location>', methods=['GET'])
 def resolve_location(location):
-	latitude = 33.942536
-	longitude = -118.408075
+	formatted_location = location.replace(" ", "").upper()
+	as_list = formatted_location.split(",")
+	if(len(as_list) > 1):
+		latitude = as_list[0]
+		longitude = as_list[1]
+	else:	
+		latitude = 33.942536
+		longitude = -118.408075
 	return json.dumps({'location': [latitude, longitude]})
 	
 @app.route('/forecast/<src>/<dest>/<departure_datetime>/<speed_mph>/<time_step>')
