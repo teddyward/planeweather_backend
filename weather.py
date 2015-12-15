@@ -12,6 +12,7 @@ DEBUG = True
 AIRPORT_SUFFIX = " airport"
 FORECAST_KEY = "2de2e399347cba6a0d2666ae501f59e8"
 MAPS_KEY = "AIzaSyBJD1N0f9sVnhOSMQhIpFZF6oiLhK8Zi18"
+saved_forecasts = {};
 
 app = Flask(__name__)
 app.config.from_object(__name__)
@@ -79,8 +80,17 @@ def get_forecasts(source, destination, start_time, speed, interval):
 
 # get the forecast at a given latitude and longitude, at the specified time
 def get_forecast(latitude, longitude, time):
-	forecast = forecastio.load_forecast(FORECAST_KEY, latitude, longitude, time=time).currently()
-	# would switch to different library with more time; don't like these exceptions
+	rounded_latitude = round(latitude, 2)
+	rounded_longitude = round(longitude, 2)
+	forecast = saved_forecasts.get((rounded_latitude, rounded_longitude, time), None);
+	if(forecast is None):
+		forecast = forecastio.load_forecast(FORECAST_KEY, latitude, longitude, time=time).currently()
+		saved_forecasts[(rounded_latitude, rounded_longitude, time)] = forecast;
+	return resolve_forecast(forecast, latitude, longitude, time);
+
+# compile and return forecast-specific stuff
+# would switch to different library if given more time; don't like these exceptions
+def resolve_forecast(forecast, latitude, longitude, time):
 	try:
 		wind_speed = forecast.windSpeed
 		incomplete = False
@@ -101,9 +111,10 @@ def get_forecast(latitude, longitude, time):
 		humidity = 0
 	
 	time_utc = str(forecast.time)
+	#TODO: round time
+	time_rnd = str(forecast.time)
 	#google maps API failing
 	time_offset = 0
-	time_rnd = str(forecast.time)
 	
 	read = {
 		"humidity": humidity, 
