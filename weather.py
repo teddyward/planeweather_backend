@@ -16,28 +16,24 @@ MAPS_KEY = "AIzaSyBJD1N0f9sVnhOSMQhIpFZF6oiLhK8Zi18"
 app = Flask(__name__)
 app.config.from_object(__name__)
 
+#Resolve a given IATA code (or lat/lng pair) to a json list of [lat, lng]
 @app.route('/resolve/<location>', methods=['GET'])
 def resolve_location(location):
 	return json.dumps({'location': get_location(location)})
 	
+#Retrieve a forecast for a flight with the given parameters
 @app.route('/forecast/<src>/<dest>/<departure_datetime>/<speed_mph>/<time_step>')
 def forecast_route(src, dest, departure_datetime, speed_mph, time_step):
+	#reformat inputs
 	source = get_location(src)
 	destination = get_location(dest)
+	start_time = dateutil.parser.parse(departure_datetime)
 	speed = float(speed_mph)
 	interval = float(time_step)
-	distance = great_circle(source, destination).miles
-	num_reads = int(math.floor(distance / (speed * interval)))
-	miles_travelled = 0
-	start_time = dateutil.parser.parse(departure_datetime)
-	all_reads = []
-	for point in range (num_reads):
-		miles_travelled += speed * interval
-		waypoint = get_waypoint(source, destination, distance, miles_travelled)
-		time = start_time + dateutil.relativedelta.relativedelta(hours=interval)
-		all_reads.append(get_weather(waypoint[0], waypoint[1], time))
+	#get forecasts
+	forecasts = get_forecasts(source, destination, start_time, speed, interval)
 	return json.dumps(all_reads)
-	
+
 def get_location(location):
 	formatted_location = location.replace(" ", "").upper()
 	as_list = formatted_location.split(",")
@@ -47,6 +43,8 @@ def get_location(location):
 		location = get_IATA_geocode(formatted_location)
 	return location
 	
+# calculate a waypoint a given distance along a route between two lat/long coords
+# not implemented correctly
 def get_waypoint(source, destination, distance, miles_travelled):
 	#not exact, unsure how to calculate waypoints on a route with GPS coords
 	proportion = miles_travelled / distance
@@ -54,6 +52,8 @@ def get_waypoint(source, destination, distance, miles_travelled):
 	longitude = ((destination[1] - source[1]) * proportion) + source[1]
 	return [latitude, longitude]
 
+# looks up the lat/long coordinates of a given IATA code
+# using the Google Maps geocode API
 def get_IATA_geocode(iata_code):
 	gmaps = googlemaps.Client(key=MAPS_KEY)
 	full_location = gmaps.geocode(iata_code + AIRPORT_SUFFIX)
@@ -62,8 +62,25 @@ def get_IATA_geocode(iata_code):
 	ret = [lat_long["lat"], lat_long["lng"]]
 	return ret
 
-def get_weather(latitude, longitude, time):
+# get an array of forecasts at different locations
+# by calculating waypoints on the route between the start / end
+# and retrieving a forecast for each one
+def get forecasts(source, destination, start_time, speed, interval):
+	distance = great_circle(source, destination).miles
+	num_reads = int(math.floor(distance / (speed * interval)))
+	miles_travelled = 0
+	all_reads = []
+	for point in range (num_reads):
+		miles_travelled += speed * interval
+		waypoint = get_waypoint(source, destination, distance, miles_travelled)
+		time = start_time + dateutil.relativedelta.relativedelta(hours=interval)
+		all_reads.append(get_forecast(waypoint[0], waypoint[1], time))
+	return all_reads
+
+# get the forecast at a given latitude and longitude, at the specified time
+def get_forecast(latitude, longitude, time):
 	forecast = forecastio.load_forecast(FORECAST_KEY, latitude, longitude, time=time).currently()
+	# would switch to different library with more time; don't like these exceptions
 	try:
 		wind_speed = forecast.windSpeed
 		incomplete = False
